@@ -57,6 +57,9 @@ class ModelArguments:
     freeze_backbone: bool = field(default=False)
     tune_mm_mlp_adapter: bool = field(default=False)
     vision_tower: Optional[str] = field(default=None)
+    soft_moe: bool = field(default=False, metadata={"help": "Enable soft MoE"})
+    experts_n: Optional[int] = field(default=2)
+    slots_n: Optional[int] = field(default=2)
     mm_vision_select_layer: Optional[int] = field(default=-1)   # default to the last layer
     pretrain_mm_mlp_adapter: Optional[str] = field(default=None)
     mm_projector_type: Optional[str] = field(default='linear')
@@ -188,7 +191,10 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer,
 
     if getattr(trainer.args, "tune_mm_mlp_adapter", False):
         # Only save Adapter
-        keys_to_match = ['mm_projector']
+
+        if getattr(trainer.args, "tune_mm_mlp_adapter", False):
+            keys_to_match = ['mm_projector']
+
         if getattr(trainer.args, "use_im_start_end", False):
             keys_to_match.extend(['embed_tokens', 'embed_in'])
 
@@ -592,7 +598,7 @@ def preprocess_plain(
     # add end signal and concatenate together
     conversations = []
     for source in sources:
-        assert len(source) == 2
+        assert len(source) == 2, print("Len:", len(source), "\nSource:", source)
         assert DEFAULT_IMAGE_TOKEN in source[0]['value']
         source[0]['value'] = DEFAULT_IMAGE_TOKEN
         conversation = source[0]['value'] + source[1]['value'] + conversation_lib.default_conversation.sep
@@ -841,6 +847,7 @@ def train(attn_implementation=None):
         )
     model.config.use_cache = False
 
+
     if model_args.freeze_backbone:
         model.model.requires_grad_(False)
 
@@ -912,7 +919,7 @@ def train(attn_implementation=None):
             model_args=model_args,
             fsdp=training_args.fsdp
         )
-        
+
         vision_tower = model.get_vision_tower()
         vision_tower.to(dtype=torch.bfloat16 if training_args.bf16 else torch.float16, device=training_args.device)
 
@@ -939,6 +946,9 @@ def train(attn_implementation=None):
 
         model.config.mm_use_im_start_end = data_args.mm_use_im_start_end = model_args.mm_use_im_start_end
         model.config.mm_projector_lr = training_args.mm_projector_lr
+        model.config.soft_moe = model_args.soft_moe
+        model.config.experts_n = model_args.experts_n
+        model.config.slots_n = model_args.slots_n
         training_args.use_im_start_end = model_args.mm_use_im_start_end
         model.config.mm_use_im_patch_token = model_args.mm_use_im_patch_token
         model.initialize_vision_tokenizer(model_args, tokenizer=tokenizer)
@@ -966,6 +976,8 @@ def train(attn_implementation=None):
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
         trainer.train(resume_from_checkpoint=True)
     else:
+        # print(model)
+        # print(trainer)
         trainer.train()
     trainer.save_state()
 

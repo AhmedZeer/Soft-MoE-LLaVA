@@ -22,6 +22,10 @@ dist
 wandb
 output
 
+# Slurm
+*.out
+slurm-*
+
 checkpoints
 ckpts*
 

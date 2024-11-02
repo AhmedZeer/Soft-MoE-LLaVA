@@ -71,13 +71,26 @@ class LlavaMetaModel:
 
         self.config.use_mm_proj = True
         self.config.mm_projector_type = getattr(model_args, 'mm_projector_type', 'linear')
+        self.config.soft_moe = getattr(model_args, 'soft_moe', False)
+        self.config.experts_n = getattr(model_args, 'experts_n', 2)
+        self.config.slots_n = getattr(model_args, 'slots_n', 2)
         self.config.mm_hidden_size = vision_tower.hidden_size
         self.config.mm_vision_select_layer = mm_vision_select_layer
         self.config.mm_vision_select_feature = mm_vision_select_feature
         self.config.mm_patch_merge_type = mm_patch_merge_type
 
+        # print(5*"\n")
+        # print("-> @ Llava Arch <-")
+        # print(self.config)
+        # print(5*"\n")
+
         if getattr(self, 'mm_projector', None) is None:
             self.mm_projector = build_vision_projector(self.config)
+
+            # print(5*"\n")
+            # print("-> @ Llava Arch <-")
+            # print(self.mm_projector)
+            # print(5*"\n")
 
             if 'unpad' in mm_patch_merge_type:
                 embed_std = 1 / torch.sqrt(torch.tensor(self.config.hidden_size, dtype=self.dtype))

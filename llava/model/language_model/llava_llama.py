@@ -38,6 +38,13 @@ class LlavaLlamaModel(LlavaMetaModel, LlamaModel):
         super(LlavaLlamaModel, self).__init__(config)
 
 
+class SoftMoELlavaLlamaModel(LlavaMetaModel, LlamaModel):
+    config_class = LlavaConfig
+
+    def __init__(self, config: LlamaConfig):
+        super(LlavaLlamaModel, self).__init__(config)
+
+
 class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
     config_class = LlavaConfig
 
