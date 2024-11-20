@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 
 from transformers import CLIPVisionModel, CLIPImageProcessor, CLIPVisionConfig
+from transformers import SiglipImageProcessor, SiglipVisionModel,CLIPVisionConfig
+from transformers import AutoProcessor, AutoModel, AutoConfig
 
 
 class CLIPVisionTower(nn.Module):
@@ -77,6 +79,7 @@ class CLIPVisionTower(nn.Module):
 
     @property
     def hidden_size(self):
+        print(self.config)
         return self.config.hidden_size
 
     @property
@@ -145,3 +148,58 @@ class CLIPVisionTowerS2(CLIPVisionTower):
     @property
     def hidden_size(self):
         return self.config.hidden_size * len(self.s2_scales)
+
+
+class AutoVisionTower(CLIPVisionTower):
+    def __init__(self, vision_tower, args, delay_load=False):
+        super().__init__(vision_tower, args)
+
+    def load_model(self, device_map=None):
+        if self.is_loaded:
+            print('{} is already loaded, `load_model` called again, skipping.'.format(self.vision_tower_name))
+            return
+
+        self.image_processor = AutoProcessor.from_pretrained(self.vision_tower_name)
+        self.vision_tower = AutoModel.from_pretrained(self.vision_tower_name, device_map=device_map)
+        self.vision_tower.requires_grad_(False)
+
+        self.is_loaded = True
+
+
+    @property
+    def config(self):
+        config = self.vision_tower.config
+        # print(config)
+        if hasattr(config, "vision_config"):
+            vision_config = config.vision_config
+            return vision_config
+        return config if self.is_loaded else self.cfg_only
+
+    @property
+    def hidden_size(self):
+        print("@ Image Encoder Config")
+        print(self.config.hidden_size)
+        print("Image Encoder Config @")
+        return self.config.hidden_size
+
+class SiglipVisionTower(CLIPVisionTower):
+    def __init__(self, vision_tower, args, delay_load=False):
+        super().__init__(vision_tower, args)
+
+        if not delay_load:
+            self.load_model()
+        elif getattr(args, 'unfreeze_mm_vision_tower', False):
+            self.load_model()
+        else:
+            self.cfg_only = SiglipVisionConfig.from_pretrained(self.vision_tower_name)
+
+    def load_model(self, device_map=None):
+        if self.is_loaded:
+            print('{} is already loaded, `load_model` called again, skipping.'.format(self.vision_tower_name))
+            return
+
+        self.image_processor = SiglipImageProcessor.from_pretrained(self.vision_tower_name)
+        self.vision_tower = SiglipVisionModel.from_pretrained(self.vision_tower_name, device_map=device_map)
+        self.vision_tower.requires_grad_(False)
+
+        self.is_loaded = True

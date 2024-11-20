@@ -800,6 +800,17 @@ class LazySupervisedDataset(Dataset):
             image_file = self.list_data_dict[i]['image']
             image_folder = self.data_args.image_folder
             processor = self.data_args.image_processor
+
+            # For AutoModel
+            # if hasattr(processor, "image_processor"):
+            #     processor = processor.image_processor
+
+            # print("@ processor")
+            # print(processor)
+            # print("dir(processor)")
+            # print(dir(processor))
+            # print("processor @")
+
             image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
             if self.data_args.image_aspect_ratio == 'pad':
                 def expand2square(pil_img, background_color):

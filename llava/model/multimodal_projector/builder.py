@@ -23,11 +23,11 @@ class SoftMoE(nn.Module):
 
     def forward(self, x):
 
-        print("\n"*5)
-        print("0-"*5)
-        print("@ SoftMoE.forward(x):")
-        print("  -> x.shape:", x.shape)
-        print("  -> x.dtype:", x.dtype)
+        # print("\n"*5)
+        # print("0-"*5)
+        # print("@ SoftMoE.forward(x):")
+        # print("  -> x.shape:", x.shape)
+        # print("  -> x.dtype:", x.dtype)
 
         if x.shape[0] < 30:
             repeat_num = self.patch_size - x.shape[0]
@@ -38,7 +38,7 @@ class SoftMoE(nn.Module):
         x_phi = self.phi(x)
         # x_phi = x_phi.reshape(self.m,self.n,self.p)
         x_phi = x_phi.reshape(self.patch_size, self.patch_dim ,self.n,self.p)
-        print("  -> x_phi.shape:", x_phi.shape)
+        # print("  -> x_phi.shape:", x_phi.shape)
 
         assert x_phi.shape[-2] == self.n
 
@@ -62,16 +62,16 @@ class SoftMoE(nn.Module):
 
 
         X_tilde = torch.einsum("tznp,tzd->npd", D, x)
-        print("  -> x_tilde:", X_tilde)
-        print("  -> x_tilde.shape:", X_tilde.shape)
+        # print("  -> x_tilde:", X_tilde)
+        # print("  -> x_tilde.shape:", X_tilde.shape)
         torch.clamp_(X_tilde, -33000, 65000)
         X_tilde = F.layer_norm(X_tilde, [X_tilde.shape[-1]])
-        print("  -> layer_norm(x_tilde):", X_tilde)
+        # print("  -> layer_norm(x_tilde):", X_tilde)
         X_tilde = F.tanh(X_tilde)
-        print("  -> tanh(x_tilde):", X_tilde)
-
-        print("  -> x_tilde.shape:", X_tilde.shape)
-        print("  -> x_tilde.dtype:", X_tilde.dtype)
+        # print("  -> tanh(x_tilde):", X_tilde)
+        #
+        # print("  -> x_tilde.shape:", X_tilde.shape)
+        # print("  -> x_tilde.dtype:", X_tilde.dtype)
 
         # Train:
         Y_tilde = torch.ones([X_tilde.shape[0], X_tilde.shape[1], self.hidden_size], dtype=torch.float16).to(X_tilde.device)
@@ -83,18 +83,18 @@ class SoftMoE(nn.Module):
             Y_tilde[i, :, :] = expert(X_tilde[i,:,:]) #[n, p, d]
 
 
-        print("  -> y_tilde.shape:", Y_tilde.shape)
-        print("  -> y_tilde.dtype:", Y_tilde.dtype)
-        print("  -> D.dtype:", D.dtype)
-        print("  -> C.dtype:", C.dtype)
+        # print("  -> y_tilde.shape:", Y_tilde.shape)
+        # print("  -> y_tilde.dtype:", Y_tilde.dtype)
+        # print("  -> D.dtype:", D.dtype)
+        # print("  -> C.dtype:", C.dtype)
 
         # Y = torch.einsum('npd,mnp->md', Y_tilde, C)
 
         # [patch_size, patch_dim, n, p] X [n, p, hidden_size] -> [patch_size, patch_dim, hidden_size]
         Y = torch.einsum('tznp,npH->tzH', C, Y_tilde)
-        print("  -> y.dtype:", Y.dtype)
-        print("-0"*5)
-        print("\n"*5)
+        # print("  -> y.dtype:", Y.dtype)
+        # print("-0"*5)
+        # print("\n"*5)
         return Y
 
 class IdentityMap(nn.Module):

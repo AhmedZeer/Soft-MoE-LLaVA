@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J "Llava_Overfit"                         # isin adi
+#SBATCH -J "Llava_SigLIP"                         # isin adi
 
 #SBATCH -A sdmmtv                           # account / proje adi
 #SBATCH -p a100x4q                          # kuyruk (partition/queue) adi
@@ -21,5 +21,6 @@
 
 # ./playground/data/LLaVA-Pretrain/chat.json
 # sh ./scripts/v1_5/pretrain_moe_cosmosllama.sh
-sh ./scripts/v1_5/finetune_moe_cosmosllama_overfit.sh
+# sh ./scripts/v1_5/finetune_moe_cosmosllama_overfit.sh
 # sh ./scripts/v1_5/finetune_moe_vicuna.sh
+sh ./scripts/v1_5/pretrain_cosmosllama_siglip.sh
