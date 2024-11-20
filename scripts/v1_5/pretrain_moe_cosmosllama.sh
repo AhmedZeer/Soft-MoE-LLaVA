@@ -2,7 +2,7 @@
 
 deepspeed /ari/users/azeer/Soft-MoE-LLaVA/llava/train/train_mem.py \
   --deepspeed ./scripts/zero2.json \
-  --model_name_or_path lmsys/vicuna-13b-v1.5 \
+  --model_name_or_path ytu-ce-cosmos/Turkish-Llama-8b-DPO-v0.1 \
   --version plain \
   --data_path /ari/users/azeer/llava++/LLaVA-pp/LLaVA/playground/data/LLaVa-pretrain/chat.json \
   --image_folder /ari/users/azeer/llava++/LLaVA-pp/LLaVA/playground/data/LLaVa-pretrain/images \
@@ -13,8 +13,8 @@ deepspeed /ari/users/azeer/Soft-MoE-LLaVA/llava/train/train_mem.py \
   --mm_vision_select_layer -2 \
   --mm_use_im_start_end False \
   --mm_use_im_patch_token False \
-  --bf16 True \
-  --output_dir ./checkpoints/llava-v1.5-13b-pretrain \
+  --fp16 True \
+  --output_dir ./checkpoints/llava-v1.5-8b-2e-2p-pretrain-cosmosdpo-clamp_layerNorm_tanh-FULL \
   --num_train_epochs 1 \
   --per_device_train_batch_size 32 \
   --per_device_eval_batch_size 4 \

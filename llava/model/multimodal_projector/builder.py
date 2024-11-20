@@ -1,6 +1,8 @@
 import torch
+from torch._C import dtype
 import torch.nn as nn
 import re
+import torch.nn.functional as F
 
 class SoftMoE(nn.Module):
     def __init__(self, patch_size:int,
@@ -21,11 +23,11 @@ class SoftMoE(nn.Module):
 
     def forward(self, x):
 
-        # print("\n"*5)
-        # print("0-"*5)
+        print("\n"*5)
+        print("0-"*5)
         print("@ SoftMoE.forward(x):")
         print("  -> x.shape:", x.shape)
-        # print("  -> x.dtype:", x.dtype)
+        print("  -> x.dtype:", x.dtype)
 
         if x.shape[0] < 30:
             repeat_num = self.patch_size - x.shape[0]
@@ -58,26 +60,41 @@ class SoftMoE(nn.Module):
         D = x_phi.softmax(dim=3)
         C = x_phi.softmax(dim=2)
 
+
         X_tilde = torch.einsum("tznp,tzd->npd", D, x)
+        print("  -> x_tilde:", X_tilde)
+        print("  -> x_tilde.shape:", X_tilde.shape)
+        torch.clamp_(X_tilde, -33000, 65000)
+        X_tilde = F.layer_norm(X_tilde, [X_tilde.shape[-1]])
+        print("  -> layer_norm(x_tilde):", X_tilde)
+        X_tilde = F.tanh(X_tilde)
+        print("  -> tanh(x_tilde):", X_tilde)
 
-        # print("  -> x_tilde.shape:", X_tilde.shape)
-        # print("  -> x_tilde.dtype:", X_tilde.dtype)
+        print("  -> x_tilde.shape:", X_tilde.shape)
+        print("  -> x_tilde.dtype:", X_tilde.dtype)
 
-        Y_tilde = torch.ones([X_tilde.shape[0], X_tilde.shape[1], self.hidden_size], dtype=torch.bfloat16).to(X_tilde.device)
+        # Train:
+        Y_tilde = torch.ones([X_tilde.shape[0], X_tilde.shape[1], self.hidden_size], dtype=torch.float16).to(X_tilde.device)
+
+        # Inference
+        # Y_tilde = torch.ones([X_tilde.shape[0], X_tilde.shape[1], self.hidden_size], dtype=torch.float16).to(X_tilde.device)
         for i, expert in enumerate(self.experts):
             # print("Expert:", expert)
             Y_tilde[i, :, :] = expert(X_tilde[i,:,:]) #[n, p, d]
 
 
-        # print("  -> y_tilde.shape:", Y_tilde.shape)
-        # print("  -> y_tilde.dtype:", Y_tilde.dtype)
-        # print("-0"*5)
-        # print("\n"*5)
+        print("  -> y_tilde.shape:", Y_tilde.shape)
+        print("  -> y_tilde.dtype:", Y_tilde.dtype)
+        print("  -> D.dtype:", D.dtype)
+        print("  -> C.dtype:", C.dtype)
 
         # Y = torch.einsum('npd,mnp->md', Y_tilde, C)
 
         # [patch_size, patch_dim, n, p] X [n, p, hidden_size] -> [patch_size, patch_dim, hidden_size]
         Y = torch.einsum('tznp,npH->tzH', C, Y_tilde)
+        print("  -> y.dtype:", Y.dtype)
+        print("-0"*5)
+        print("\n"*5)
         return Y
 
 class IdentityMap(nn.Module):
@@ -111,7 +128,12 @@ def create_expert(mlp_depth, mm_hidden_size, hidden_size):
     modules = [nn.Linear(mm_hidden_size, hidden_size)]
     for _ in range(1, mlp_depth):
         modules.append(nn.GELU())
+
+        # Train:
         modules.append(nn.Linear(hidden_size, hidden_size).to(device))
+
+        # Inference:
+        # modules.append(nn.Linear(hidden_size, hidden_size).to_empty(device=device))
     return nn.Sequential(*modules)
 
 def build_vision_projector(config, delay_load=False, **kwargs):

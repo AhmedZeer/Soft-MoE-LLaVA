@@ -1,3 +1,5 @@
+# Modified from LLaVA: https://github.com/haotian-liu/LLaVA.git
+#
 #    Copyright 2023 Haotian Liu
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,13 +40,6 @@ class LlavaLlamaModel(LlavaMetaModel, LlamaModel):
         super(LlavaLlamaModel, self).__init__(config)
 
 
-class SoftMoELlavaLlamaModel(LlavaMetaModel, LlamaModel):
-    config_class = LlavaConfig
-
-    def __init__(self, config: LlamaConfig):
-        super(LlavaLlamaModel, self).__init__(config)
-
-
 class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
     config_class = LlavaConfig
 
@@ -75,6 +70,7 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
         images: Optional[torch.FloatTensor] = None,
         image_sizes: Optional[List[List[int]]] = None,
         return_dict: Optional[bool] = None,
+        cache_position = None,  # Required for inference
     ) -> Union[Tuple, CausalLMOutputWithPast]:
 
         if inputs_embeds is None:
