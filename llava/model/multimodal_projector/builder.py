@@ -5,7 +5,7 @@ import re
 import torch.nn.functional as F
 
 class SoftMoE(nn.Module):
-    def __init__(self, patch_size:int,
+    def __init__(self, batch_size:int,
                  patch_dim:int,
                  d:int, n:int, p:int,
                  experts:nn.ModuleList,
@@ -14,49 +14,47 @@ class SoftMoE(nn.Module):
 
         self.n = n
         self.patch_dim = patch_dim
-        self.patch_size = patch_size
+        # self.batch_size = batch_size
         self.p = p
-        self.m = patch_size * patch_dim
+        # self.m = batch_size * patch_dim
         self.phi = nn.Linear(d, n*p)
         self.experts = experts
         self.hidden_size = hidden_size
 
     def forward(self, x):
 
-        # print("\n"*5)
+        # print("@ SoftMoE.forward(x)")
         # print("0-"*5)
-        # print("@ SoftMoE.forward(x):")
         # print("  -> x.shape:", x.shape)
         # print("  -> x.dtype:", x.dtype)
 
-        if x.shape[0] < 30:
-            repeat_num = self.patch_size - x.shape[0]
-            last_slice = x[-1].unsqueeze(0).repeat(repeat_num,1,1)
-            x = torch.cat([x, last_slice], dim=0)
-            print("Amended.")
+        # x : [8, 576, 1024]
+        # y : [8, 576, 4096]
+
+        # x : [batch_size, hidden_size, in_dim]
+        # y : [batch_size, hidden_size, d]
+
+        # if x.shape[0] < self.batch_size:
+        #     repeat_num = self.batch_size - x.shape[0]
+        #     last_slice = x[-1].unsqueeze(0).repeat(repeat_num,1,1)
+        #     x = torch.cat([x, last_slice], dim=0)
+        #     print("Amended.")
 
         x_phi = self.phi(x)
+        # print("  -> x_phi.shape:", x_phi.shape)
         # x_phi = x_phi.reshape(self.m,self.n,self.p)
-        x_phi = x_phi.reshape(self.patch_size, self.patch_dim ,self.n,self.p)
+        x_phi = x_phi.reshape(-1, self.patch_dim ,self.n,self.p)
         # print("  -> x_phi.shape:", x_phi.shape)
 
+        # print("0-"*5)
+        # print("SoftMoE.forward(x) @")
         assert x_phi.shape[-2] == self.n
 
-        # #[m,n,p]
-        # D = x_phi.softmax(dim=2)
-        # C = x_phi.softmax(dim=1)
-        # # [n,p,m]
-        # D.transpose_(0,-1)
-        # D.transpose_(0,1)
-        # # [n,p,m] X [m,d] -> [n, p, d]
-        # X_tilde = D @ x
-        # print(e)
-
-        # t : patch_size
+        # t : batch_size
         # p : patch_dim
         # H : hidden_size
 
-        # [patch_size, patch_dim ,n,p]
+        # [batch_size, patch_dim ,n,p]
         D = x_phi.softmax(dim=3)
         C = x_phi.softmax(dim=2)
 
@@ -90,7 +88,7 @@ class SoftMoE(nn.Module):
 
         # Y = torch.einsum('npd,mnp->md', Y_tilde, C)
 
-        # [patch_size, patch_dim, n, p] X [n, p, hidden_size] -> [patch_size, patch_dim, hidden_size]
+        # [batch_size, patch_dim, n, p] X [n, p, hidden_size] -> [batch_size, patch_dim, hidden_size]
         Y = torch.einsum('tznp,npH->tzH', C, Y_tilde)
         # print("  -> y.dtype:", Y.dtype)
         # print("-0"*5)
@@ -140,6 +138,7 @@ def build_vision_projector(config, delay_load=False, **kwargs):
 
     projector_type = getattr(config, 'mm_projector_type', 'linear')
     is_soft_moe = getattr(config, 'soft_moe', False)
+    batch_size = getattr(config, 'moe_batch_size', 1)
     print(config)
     print("is_soft_moe:",is_soft_moe)
 
@@ -163,10 +162,9 @@ def build_vision_projector(config, delay_load=False, **kwargs):
             experts_n = config.experts_n
             slots_n = config.slots_n
             experts = nn.ModuleList([create_expert(mlp_depth,mm_hidden_size, hidden_size) for _ in range(experts_n)])
-            soft_moe = SoftMoE(patch_size=32,
+            soft_moe = SoftMoE(batch_size=batch_size,
                                patch_dim=576,
-                               # d=hidden_size,
-                               d=mm_hidden_size,
+                               d=mm_hidden_size, # Projector Hidden Size
                                n=experts_n,
                                p=slots_n,
                                experts=experts,

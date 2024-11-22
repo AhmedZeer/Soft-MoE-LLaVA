@@ -23,4 +23,8 @@
 # sh ./scripts/v1_5/pretrain_moe_cosmosllama.sh
 # sh ./scripts/v1_5/finetune_moe_cosmosllama_overfit.sh
 # sh ./scripts/v1_5/finetune_moe_vicuna.sh
-sh ./scripts/v1_5/pretrain_cosmosllama_siglip.sh
+# sh ./scripts/v1_5/pretrain_cosmosllama_siglip.sh
+# sh ./scripts/v1_5/finetune_moe_cosmosllama.sh
+sh ./scripts/v1_5/finetune_cosmosllama_siglip.sh
+# sh ./scripts/v1_5/pretrain_moe_cosmosllama_eval_test.sh
+# sh ./scripts/v1_5/pretrain_cosmosllama_siglip_eval_test.sh

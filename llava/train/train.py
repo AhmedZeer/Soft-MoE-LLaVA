@@ -55,6 +55,7 @@ IS_TOKENIZER_GREATER_THAN_0_14 = version.parse(tokenizers.__version__) >= versio
 
 @dataclass
 class ModelArguments:
+    moe_batch_size: int = field(metadata={"help": "add_batch_size"})
     model_name_or_path: Optional[str] = field(default="facebook/opt-125m")
     version: Optional[str] = field(default="v0")
     freeze_backbone: bool = field(default=False)
@@ -73,14 +74,23 @@ class ModelArguments:
 
 
 @dataclass
-class DataArguments:
-    data_path: str = field(default=None,
+class TrainDataArguments:
+    train_data_path: str = field(default=None,
                            metadata={"help": "Path to the training data."})
     lazy_preprocess: bool = False
     is_multimodal: bool = False
     image_folder: Optional[str] = field(default=None)
     image_aspect_ratio: str = 'square'
 
+
+@dataclass
+class EvalDataArguments:
+    eval_data_path: str = field(default=None,
+                           metadata={"help": "Path to the training data."})
+    eval_lazy_preprocess: bool = False
+    eval_is_multimodal: bool = False
+    eval_image_folder: Optional[str] = field(default=None)
+    eval_image_aspect_ratio: str = 'square'
 
 @dataclass
 class TrainingArguments(transformers.TrainingArguments):
@@ -313,9 +323,12 @@ def _add_speaker_and_signal(header, source, get_conversation=True):
 
 def preprocess_multimodal(
     sources: Sequence[str],
-    data_args: DataArguments
+    data_args
 ) -> Dict:
-    is_multimodal = data_args.is_multimodal
+    try:
+        is_multimodal = data_args.is_multimodal
+    except:
+        is_multimodal = data_args.eval_is_multimodal
     if not is_multimodal:
         return sources
 
@@ -762,7 +775,7 @@ class LazySupervisedDataset(Dataset):
 
     def __init__(self, data_path: str,
                  tokenizer: transformers.PreTrainedTokenizer,
-                 data_args: DataArguments):
+                 data_args):
         super(LazySupervisedDataset, self).__init__()
         list_data_dict = json.load(open(data_path, "r"))
 
@@ -798,7 +811,12 @@ class LazySupervisedDataset(Dataset):
         assert len(sources) == 1, "Don't know why it is wrapped to a list"  # FIXME
         if 'image' in sources[0]:
             image_file = self.list_data_dict[i]['image']
-            image_folder = self.data_args.image_folder
+
+            try:
+                image_folder = self.data_args.image_folder
+            except:
+                image_folder = self.data_args.eval_image_folder
+
             processor = self.data_args.image_processor
 
             # For AutoModel
@@ -812,7 +830,12 @@ class LazySupervisedDataset(Dataset):
             # print("processor @")
 
             image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
-            if self.data_args.image_aspect_ratio == 'pad':
+            try:
+                aspect_ratio = self.data_args.image_aspect_ratio
+            except:
+                aspect_ratio = self.data_args.eval_image_aspect_ratio
+
+            if aspect_ratio == 'pad':
                 def expand2square(pil_img, background_color):
                     width, height = pil_img.size
                     if width == height:
@@ -888,14 +911,20 @@ class DataCollatorForSupervisedDataset(object):
 
 
 def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,
-                                data_args) -> Dict:
+                                train_data_args, eval_data_args) -> Dict:
     """Make dataset and collator for supervised fine-tuning."""
+
     train_dataset = LazySupervisedDataset(tokenizer=tokenizer,
-                                          data_path=data_args.data_path,
-                                          data_args=data_args)
+                                          data_path=train_data_args.train_data_path,
+                                          data_args=train_data_args)
+
+    eval_dataset = LazySupervisedDataset(tokenizer=tokenizer,
+                                          data_path=eval_data_args.eval_data_path,
+                                          data_args=eval_data_args)
+
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
     return dict(train_dataset=train_dataset,
-                eval_dataset=None,
+                eval_dataset=eval_dataset,
                 data_collator=data_collator)
 
 
@@ -903,8 +932,8 @@ def train(attn_implementation=None):
     global local_rank
 
     parser = transformers.HfArgumentParser(
-        (ModelArguments, DataArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+        (ModelArguments, TrainDataArguments, EvalDataArguments, TrainingArguments))
+    model_args, train_data_args, eval_data_args, training_args = parser.parse_args_into_dataclasses()
     local_rank = training_args.local_rank
     compute_dtype = (torch.float16 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
 
@@ -1046,10 +1075,14 @@ def train(attn_implementation=None):
         vision_tower = model.get_vision_tower()
         vision_tower.to(dtype=torch.bfloat16 if training_args.bf16 else torch.float16, device=training_args.device)
 
-        data_args.image_processor = vision_tower.image_processor
-        data_args.is_multimodal = True
+        model.config.moe_batch_size = model_args.moe_batch_size
+        train_data_args.image_processor = vision_tower.image_processor
+        eval_data_args.image_processor = vision_tower.image_processor
 
-        model.config.image_aspect_ratio = data_args.image_aspect_ratio
+        train_data_args.is_multimodal = True
+        eval_data_args.eval_is_multimodal = False
+
+        model.config.image_aspect_ratio = train_data_args.image_aspect_ratio
         model.config.tokenizer_padding_side = tokenizer.padding_side
         model.config.tokenizer_model_max_length = tokenizer.model_max_length
 
@@ -1074,12 +1107,16 @@ def train(attn_implementation=None):
         if training_args.bits in [4, 8]:
             model.get_model().mm_projector.to(dtype=compute_dtype, device=training_args.device)
 
-        model.config.mm_use_im_start_end = data_args.mm_use_im_start_end = model_args.mm_use_im_start_end
+        model.config.mm_use_im_start_end = train_data_args.mm_use_im_start_end = model_args.mm_use_im_start_end
         model.config.mm_projector_lr = training_args.mm_projector_lr
         training_args.use_im_start_end = model_args.mm_use_im_start_end
         model.config.soft_moe = model_args.soft_moe
         model.config.experts_n = model_args.experts_n
         model.config.slots_n = model_args.slots_n
+        print("@ Model Args")
+        print(model_args.moe_batch_size)
+        print(model.config.moe_batch_size)
+        print("Model Args @")
         model.config.mm_use_im_patch_token = model_args.mm_use_im_patch_token
         model.initialize_vision_tokenizer(model_args, tokenizer=tokenizer)
         model.config.pad_token_id = tokenizer.pad_token_id
@@ -1098,7 +1135,8 @@ def train(attn_implementation=None):
                         module = module.to(torch.bfloat16)
 
     data_module = make_supervised_data_module(tokenizer=tokenizer,
-                                              data_args=data_args)
+                                              train_data_args=train_data_args,
+                                              eval_data_args=eval_data_args)
     trainer = LLaVATrainer(model=model,
                            tokenizer=tokenizer,
                            args=training_args,

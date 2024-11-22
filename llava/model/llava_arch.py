@@ -78,6 +78,8 @@ class LlavaMetaModel:
         self.config.mm_vision_select_layer = mm_vision_select_layer
         self.config.mm_vision_select_feature = mm_vision_select_feature
         self.config.mm_patch_merge_type = mm_patch_merge_type
+        self.config.moe_batch_size = getattr(model_args, 'moe_batch_size', 0)
+
 
         # print(5*"\n")
         # print("-> @ Llava Arch <-")
@@ -151,8 +153,13 @@ class LlavaMetaForCausalLM(ABC):
         return self.get_model().get_vision_tower()
 
     def encode_images(self, images):
-        image_features = self.get_model().get_vision_tower()(images)
+        vision_tower = self.get_model().get_vision_tower()
+        # print("Tower:", vision_tower)
+        # print("Image Tower Name:", vision_tower._get_name())
+        image_features = vision_tower(images)
+        # print("Image Features After Tower:", image_features.shape)
         image_features = self.get_model().mm_projector(image_features)
+        # print("Image Features After Projector:", image_features.shape)
         return image_features
 
     def prepare_inputs_labels_for_multimodal(
@@ -167,7 +174,10 @@ class LlavaMetaForCausalLM(ABC):
             if type(images) is list:
                 images = [x.unsqueeze(0) if x.ndim == 3 else x for x in images]
             concat_images = torch.cat([image for image in images], dim=0)
+
             image_features = self.encode_images(concat_images)
+            print("image_features:", image_features.size())
+
             split_sizes = [image.shape[0] for image in images]
             image_features = torch.split(image_features, split_sizes, dim=0)
             mm_patch_merge_type = getattr(self.config, 'mm_patch_merge_type', 'flat')
@@ -243,6 +253,7 @@ class LlavaMetaForCausalLM(ABC):
         new_labels = []
         cur_image_idx = 0
         for batch_idx, cur_input_ids in enumerate(input_ids):
+            # print("Num of input ids:", len(input_ids))
             num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
             if num_images == 0:
                 cur_image_features = image_features[cur_image_idx]
@@ -270,6 +281,9 @@ class LlavaMetaForCausalLM(ABC):
                 cur_new_input_embeds.append(cur_input_embeds_no_im[i])
                 cur_new_labels.append(cur_labels_noim[i])
                 if i < num_images:
+                    # print("num_images:", num_images)
+                    # print("img_idx:", cur_image_idx)
+                    # print("image_features.size()", len(image_features))
                     cur_image_features = image_features[cur_image_idx]
                     cur_image_idx += 1
                     cur_new_input_embeds.append(cur_image_features)
