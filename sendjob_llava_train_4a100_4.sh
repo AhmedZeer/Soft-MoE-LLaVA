@@ -32,7 +32,7 @@
 # sh ./scripts/v1_5/pretrain_cosmosllama_siglip_eval_test.sh
 # sh ./scripts/v1_5/hypr/finetune_moe_cosmosllama_lr1e-8.sh
 
-# sh ./scripts/v1_5/hypr/finetune_moe_cosmosllama_ga-16.sh
+sh ./scripts/v1_5/finetune_cosmosllama_internVit.sh
 # sh ./scripts/v1_5/hypr/finetune_moe_cosmosllama_lr1e-8_ga-16.sh
 # sh ./scripts/v1_5/hypr/siglip/finetune-1-default.sh
 # sh ./scripts/v1_5/overfit-encoders/overfit-clip.sh
@@ -40,5 +40,5 @@
 # sh ./scripts/v1_5/overfit-encoders/overfit-moe.sh
 # sh ./scripts/v1_5/overfit-encoders/overfit-siglip.sh
 
-# sh ./scripts/v1_5/pretrain_cosmosllama_dino.sh
-sh ./scripts/v1_5/pretrain_cosmosllama_siglip.sh
+# sh ./scripts/v1_5/pretrain_cosmosllama_clip_3.sh
+

@@ -61,6 +61,7 @@ class ModelArguments:
     freeze_backbone: bool = field(default=False)
     tune_mm_mlp_adapter: bool = field(default=False)
     vision_tower: Optional[str] = field(default=None)
+    tune_vision_tower:bool = field(default=False)
     mm_vision_select_layer: Optional[int] = field(default=-1)  # default to the last layer
     pretrain_mm_mlp_adapter: Optional[str] = field(default=None)
     mm_projector_type: Optional[str] = field(default='linear')
@@ -71,6 +72,7 @@ class ModelArguments:
     soft_moe: bool = field(default=False, metadata={"help": "Enable soft MoE"})
     experts_n: Optional[int] = field(default=2)
     slots_n: Optional[int] = field(default=2)
+    token_drop: bool = field(default=False)
 
 
 @dataclass
@@ -125,6 +127,7 @@ class TrainingArguments(transformers.TrainingArguments):
     lora_weight_path: str = ""
     lora_bias: str = "none"
     mm_projector_lr: Optional[float] = None
+    vision_tower_lr: Optional[float] = None
     group_by_modality_length: bool = field(default=False)
 
 
@@ -1072,6 +1075,7 @@ def train(attn_implementation=None):
             fsdp=training_args.fsdp
         )
 
+        model.config.tune_vision_tower = model_args.tune_vision_tower
         vision_tower = model.get_vision_tower()
         vision_tower.to(dtype=torch.bfloat16 if training_args.bf16 else torch.float16, device=training_args.device)
 
@@ -1097,6 +1101,16 @@ def train(attn_implementation=None):
             for p in model.get_model().mm_projector.parameters():
                 p.requires_grad = False
 
+        """
+        Debugging Purposes.
+        Check if the Encoder
+        Is Being Tuned.
+        for p in model.get_model().vision_tower.parameters():
+            print("VisionTowerRequiresGrad:", p.requires_grad)
+        exit(0)
+        """
+
+
         # Calculate total parameters and trainable parameters
         total_params = sum(p.numel() for p in model.get_model().parameters())
         trainable_params = sum(p.numel() for p in model.get_model().parameters() if p.requires_grad)
@@ -1113,10 +1127,11 @@ def train(attn_implementation=None):
         model.config.soft_moe = model_args.soft_moe
         model.config.experts_n = model_args.experts_n
         model.config.slots_n = model_args.slots_n
-        print("@ Model Args")
-        print(model_args.moe_batch_size)
-        print(model.config.moe_batch_size)
-        print("Model Args @")
+        model.config.token_drop = model_args.token_drop
+        # print("@ Model Args")
+        # print(model_args.moe_batch_size)
+        # print(model.config.moe_batch_size)
+        # print("Model Args @")
         model.config.mm_use_im_patch_token = model_args.mm_use_im_patch_token
         model.initialize_vision_tokenizer(model_args, tokenizer=tokenizer)
         model.config.pad_token_id = tokenizer.pad_token_id

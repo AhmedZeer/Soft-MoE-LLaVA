@@ -29,6 +29,7 @@ from llava.train.train import smart_tokenizer_and_embedding_resize
 def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, load_4bit=False, device_map="auto", device="cuda", use_flash_attn=False, **kwargs):
     kwargs = {"device_map": device_map, **kwargs}
 
+    print("Args Device", device)
     if device != "cuda":
         kwargs['device_map'] = {"": device}
 
@@ -158,6 +159,7 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
     image_processor = None
 
     if 'llava' in model_name.lower():
+        # exit(0)
         mm_use_im_start_end = getattr(model.config, "mm_use_im_start_end", False)
         mm_use_im_patch_token = getattr(model.config, "mm_use_im_patch_token", True)
         if mm_use_im_patch_token:
@@ -170,6 +172,7 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
         if not vision_tower.is_loaded:
             vision_tower.load_model(device_map=device_map)
         if device_map != 'auto':
+            print("not auto:", device_map)
             vision_tower.to(device=device_map, dtype=torch.float16)
         image_processor = vision_tower.image_processor
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J "Llava_SigLIP"                         # isin adi
+#SBATCH -J "Llava_internVit"                         # isin adi
 
 #SBATCH -A sdmmtv                           # account / proje adi
 #SBATCH -p a100x4q                          # kuyruk (partition/queue) adi
@@ -40,5 +40,5 @@
 # sh ./scripts/v1_5/overfit-encoders/overfit-moe.sh
 # sh ./scripts/v1_5/overfit-encoders/overfit-siglip.sh
 
-# sh ./scripts/v1_5/pretrain_cosmosllama_dino.sh
-sh ./scripts/v1_5/pretrain_cosmosllama_siglip.sh
+sh ./scripts/v1_5/pretrain_cosmosllama_clip_2.sh
+

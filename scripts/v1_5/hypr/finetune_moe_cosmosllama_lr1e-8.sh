@@ -7,13 +7,13 @@ deepspeed llava/train/train_mem.py \
   --deepspeed ./scripts/zero3.json \
   --model_name_or_path ytu-ce-cosmos/Turkish-Llama-8b-DPO-v0.1 \
   --version llama3 \
-  --soft_moe False \
-  --train_data_path ./playground/ocr-data/batch-2-200K/ocr-75K-finetune-train.json \
-  --eval_data_path ./playground/ocr-data/batch-2-200K/ocr-75K-finetune-test.json \
-  --image_folder ./playground/ocr-data/batch-2-200K/imgs/ \
-  --eval_image_folder ./playground/ocr-data/batch-2-200K/imgs/ \
-  --vision_tower google/siglip-so400m-patch14-384 \
-  --pretrain_mm_mlp_adapter ./checkpoints/llava-pretrain-siglip-ocr75K/mm_projector.bin \
+  --soft_moe True \
+  --train_data_path ./playground/data/tr-llava-train-overfit.json \
+  --eval_data_path ./playground/data/tr-llava-test.json \
+  --image_folder /ari/users/azeer/llava++/LLaVA-pp/LLaVA/playground/data/llava_images/ \
+  --eval_image_folder /ari/users/azeer/llava++/LLaVA-pp/LLaVA/playground/data/llava_images/ \
+  --vision_tower openai/clip-vit-large-patch14-336 \
+  --pretrain_mm_mlp_adapter ./checkpoints/llava-v1.5-8b-2e-2p-pretrain-cosmosdpo-clamp_layerNorm_tanh_lowerDim-FULL/mm_projector.bin \
   --mm_projector_type mlp2x_gelu \
   --mm_vision_select_layer -2 \
   --mm_use_im_start_end False \
@@ -21,18 +21,18 @@ deepspeed llava/train/train_mem.py \
   --image_aspect_ratio pad \
   --group_by_modality_length True \
   --fp16 True \
-  --output_dir ./checkpoints/llava-siglip-ocr75K/ \
-  --num_train_epochs 1 \
+  --output_dir ./hypr-chkpnt/llava-v1.5-8b-2e-2p-lowerDim-lr1e-8/ \
+  --num_train_epochs 50 \
   --per_device_train_batch_size 2 \
-  --per_device_eval_batch_size 4 \
+  --per_device_eval_batch_size 1 \
   --moe_batch_size 2 \
   --gradient_accumulation_steps 8 \
   --evaluation_strategy "steps" \
   --save_strategy "steps" \
   --save_steps 2000 \
-  --eval_steps 100 \
+  --eval_steps 20 \
   --save_total_limit 4 \
-  --learning_rate 2e-5 \
+  --learning_rate 1e-8 \
   --weight_decay 0. \
   --warmup_ratio 0.03 \
   --lr_scheduler_type "cosine" \

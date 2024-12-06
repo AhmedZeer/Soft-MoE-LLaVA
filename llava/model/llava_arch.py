@@ -156,10 +156,15 @@ class LlavaMetaForCausalLM(ABC):
         vision_tower = self.get_model().get_vision_tower()
         # print("Tower:", vision_tower)
         # print("Image Tower Name:", vision_tower._get_name())
+        # print("Image Features:", images.dtype)
+        # print("@ encode images")
+        # print("Images Befor Tower:", images.shape)
         image_features = vision_tower(images)
-        # print("Image Features After Tower:", image_features.shape)
-        image_features = self.get_model().mm_projector(image_features)
-        # print("Image Features After Projector:", image_features.shape)
+        # print("Images After Tower:", image_features.dtype)
+        # print("Image After Tower:", image_features.shape)
+        # print("encode images @")
+        image_features = self.get_model().mm_projector(image_features.half())
+        # print("Image Features After Projector:", image_features.dtype)
         return image_features
 
     def prepare_inputs_labels_for_multimodal(
@@ -176,7 +181,7 @@ class LlavaMetaForCausalLM(ABC):
             concat_images = torch.cat([image for image in images], dim=0)
 
             image_features = self.encode_images(concat_images)
-            print("image_features:", image_features.size())
+            # print("image_features:", image_features.size())
 
             split_sizes = [image.shape[0] for image in images]
             image_features = torch.split(image_features, split_sizes, dim=0)

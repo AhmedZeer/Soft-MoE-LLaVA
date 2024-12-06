@@ -12,8 +12,8 @@ deepspeed llava/train/train_mem.py \
   --eval_data_path ./playground/ocr-data/batch-2-200K/ocr-75K-finetune-test.json \
   --image_folder ./playground/ocr-data/batch-2-200K/imgs/ \
   --eval_image_folder ./playground/ocr-data/batch-2-200K/imgs/ \
-  --vision_tower google/siglip-so400m-patch14-384 \
-  --pretrain_mm_mlp_adapter ./checkpoints/llava-pretrain-siglip-ocr75K/mm_projector.bin \
+  --vision_tower OpenGVLab/InternViT-6B-224px \
+  --pretrain_mm_mlp_adapter ./checkpoints/llava-pretrain-internVit-ocr75K/mm_projector.bin \
   --mm_projector_type mlp2x_gelu \
   --mm_vision_select_layer -2 \
   --mm_use_im_start_end False \
@@ -21,7 +21,7 @@ deepspeed llava/train/train_mem.py \
   --image_aspect_ratio pad \
   --group_by_modality_length True \
   --fp16 True \
-  --output_dir ./checkpoints/llava-siglip-ocr75K/ \
+  --output_dir ./checkpoints/llava-internVit-ocr75K/ \
   --num_train_epochs 1 \
   --per_device_train_batch_size 2 \
   --per_device_eval_batch_size 4 \

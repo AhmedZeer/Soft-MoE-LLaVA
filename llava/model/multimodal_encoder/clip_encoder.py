@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from transformers import CLIPVisionModel, CLIPImageProcessor, CLIPVisionConfig
-from transformers import SiglipImageProcessor, SiglipVisionModel,CLIPVisionConfig
+from transformers import SiglipImageProcessor, SiglipVisionModel,SiglipVisionConfig
 from transformers import AutoProcessor, AutoModel, AutoConfig
 
 
@@ -11,7 +11,7 @@ class CLIPVisionTower(nn.Module):
         super().__init__()
 
         self.is_loaded = False
-
+        self.args = args
         self.vision_tower_name = vision_tower
         self.select_layer = args.mm_vision_select_layer
         self.select_feature = getattr(args, 'mm_vision_select_feature', 'patch')
@@ -24,13 +24,20 @@ class CLIPVisionTower(nn.Module):
             self.cfg_only = CLIPVisionConfig.from_pretrained(self.vision_tower_name)
 
     def load_model(self, device_map=None):
+        # print("@ Clip Encoder Load Model")
+        # print(self.args)
+        # print("Clip Encoder Load Model @")
         if self.is_loaded:
             print('{} is already loaded, `load_model` called again, skipping.'.format(self.vision_tower_name))
             return
 
-        self.image_processor = CLIPImageProcessor.from_pretrained(self.vision_tower_name)
-        self.vision_tower = CLIPVisionModel.from_pretrained(self.vision_tower_name, device_map=device_map)
-        self.vision_tower.requires_grad_(False)
+        self.image_processor = CLIPImageProcessor.from_pretrained(self.vision_tower_name, trust_remote_code=True)
+        self.vision_tower = CLIPVisionModel.from_pretrained(self.vision_tower_name, device_map=device_map, trust_remote_code=True)
+
+        if self.args.tune_vision_tower:
+            self.vision_tower.requires_grad_(True)
+        else:
+            self.vision_tower.requires_grad_(False)
 
         self.is_loaded = True
 
@@ -54,8 +61,11 @@ class CLIPVisionTower(nn.Module):
                 image_features.append(image_feature)
         else:
             image_forward_outs = self.vision_tower(images.to(device=self.device, dtype=self.dtype), output_hidden_states=True)
+            # print(" 1) ", image_forward_outs)
             image_features = self.feature_select(image_forward_outs).to(images.dtype)
+            # print(" 2) ", image_features.shape)
 
+        print("@ clip encoder")
         return image_features
 
     @property
@@ -118,8 +128,8 @@ class CLIPVisionTowerS2(CLIPVisionTower):
             print('{} is already loaded, `load_model` called again, skipping.'.format(self.vision_tower_name))
             return
 
-        self.image_processor = CLIPImageProcessor.from_pretrained(self.vision_tower_name)
-        self.vision_tower = CLIPVisionModel.from_pretrained(self.vision_tower_name, device_map=device_map)
+        self.image_processor = CLIPImageProcessor.from_pretrained(self.vision_tower_name, trust_remote_code=True)
+        self.vision_tower = CLIPVisionModel.from_pretrained(self.vision_tower_name, device_map=device_map, trust_remote_code=True)
         self.vision_tower.requires_grad_(False)
 
         self.image_processor.size['shortest_edge'] = self.s2_image_size
@@ -135,14 +145,17 @@ class CLIPVisionTowerS2(CLIPVisionTower):
 
     @torch.no_grad()
     def forward(self, images):
+        print("@ clip encoder")
         if type(images) is list:
             image_features = []
             for image in images:
                 image_feature = self.multiscale_forward(self.forward_feature, image.unsqueeze(0), img_sizes=self.s2_scales, max_split_size=self.s2_split_size)
+                print("One Image Feature:", image_feature.shape)
                 image_features.append(image_feature)
         else:
             image_features = self.multiscale_forward(self.forward_feature, images, img_sizes=self.s2_scales, max_split_size=self.s2_split_size)
 
+        print("clip encoder @")
         return image_features
 
     @property
@@ -159,8 +172,8 @@ class AutoVisionTower(CLIPVisionTower):
             print('{} is already loaded, `load_model` called again, skipping.'.format(self.vision_tower_name))
             return
 
-        self.image_processor = AutoProcessor.from_pretrained(self.vision_tower_name)
-        self.vision_tower = AutoModel.from_pretrained(self.vision_tower_name, device_map=device_map)
+        self.image_processor = AutoProcessor.from_pretrained(self.vision_tower_name, trust_remote_code=True)
+        self.vision_tower = AutoModel.from_pretrained(self.vision_tower_name, device_map=device_map, trust_remote_code=True)
         self.vision_tower.requires_grad_(False)
 
         self.is_loaded = True
@@ -198,8 +211,8 @@ class SiglipVisionTower(CLIPVisionTower):
             print('{} is already loaded, `load_model` called again, skipping.'.format(self.vision_tower_name))
             return
 
-        self.image_processor = SiglipImageProcessor.from_pretrained(self.vision_tower_name)
-        self.vision_tower = SiglipVisionModel.from_pretrained(self.vision_tower_name, device_map=device_map)
+        self.image_processor = SiglipImageProcessor.from_pretrained(self.vision_tower_name, trust_remote_code=True)
+        self.vision_tower = SiglipVisionModel.from_pretrained(self.vision_tower_name, device_map=device_map, trust_remote_code=True)
         self.vision_tower.requires_grad_(False)
 
         self.is_loaded = True

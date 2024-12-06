@@ -12,6 +12,7 @@ dist
 
 # Data
 !**/alpaca-data-conversation.json
+playground/ocr-data/*
 
 # Editor
 .idea
@@ -28,6 +29,8 @@ slurm-*
 
 checkpoints
 ckpts*
+*.safetensors
+*.bin
 
 .ipynb_checkpoints
 *.ipynb
@@ -37,3 +40,8 @@ ckpts*
 
 # Demo
 serve_images/
+
+# Weights
+LLMs/
+projectors/
+ovrft-chkpnt/

@@ -5,15 +5,15 @@
 
 deepspeed llava/train/train_mem.py \
   --deepspeed ./scripts/zero3.json \
-  --model_name_or_path ytu-ce-cosmos/Turkish-Llama-8b-DPO-v0.1 \
+  --model_name_or_path ytu-ce-cosmos/siglip-llm-0 \
   --version llama3 \
   --soft_moe False \
-  --train_data_path ./playground/ocr-data/batch-2-200K/ocr-75K-finetune-train.json \
-  --eval_data_path ./playground/ocr-data/batch-2-200K/ocr-75K-finetune-test.json \
-  --image_folder ./playground/ocr-data/batch-2-200K/imgs/ \
-  --eval_image_folder ./playground/ocr-data/batch-2-200K/imgs/ \
+  --train_data_path ./playground/ocr-data/overfit-1/overfit-1-train.json \
+  --eval_data_path ./playground/ocr-data/overfit-1/overfit-1-test.json \
+  --image_folder ./playground/ocr-data/batch-1-200K/imgs/ \
+  --eval_image_folder ./playground/ocr-data/batch-1-200K/imgs/ \
   --vision_tower google/siglip-so400m-patch14-384 \
-  --pretrain_mm_mlp_adapter ./checkpoints/llava-pretrain-siglip-ocr75K/mm_projector.bin \
+  --pretrain_mm_mlp_adapter ./projectors/llava-v1.5-8b-2e-2p-cosmosdpo-siglip-FULL/mm_projector.bin \
   --mm_projector_type mlp2x_gelu \
   --mm_vision_select_layer -2 \
   --mm_use_im_start_end False \
@@ -21,18 +21,18 @@ deepspeed llava/train/train_mem.py \
   --image_aspect_ratio pad \
   --group_by_modality_length True \
   --fp16 True \
-  --output_dir ./checkpoints/llava-siglip-ocr75K/ \
-  --num_train_epochs 1 \
+  --output_dir ./ovrft-chkpnt/siglip/ \
+  --num_train_epochs 20 \
   --per_device_train_batch_size 2 \
-  --per_device_eval_batch_size 4 \
+  --per_device_eval_batch_size 6 \
   --moe_batch_size 2 \
   --gradient_accumulation_steps 8 \
   --evaluation_strategy "steps" \
   --save_strategy "steps" \
   --save_steps 2000 \
-  --eval_steps 100 \
+  --eval_steps 20 \
   --save_total_limit 4 \
-  --learning_rate 2e-5 \
+  --learning_rate 2e-3 \
   --weight_decay 0. \
   --warmup_ratio 0.03 \
   --lr_scheduler_type "cosine" \

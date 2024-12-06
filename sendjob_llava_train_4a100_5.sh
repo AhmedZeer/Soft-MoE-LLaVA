@@ -40,5 +40,5 @@
 # sh ./scripts/v1_5/overfit-encoders/overfit-moe.sh
 # sh ./scripts/v1_5/overfit-encoders/overfit-siglip.sh
 
-# sh ./scripts/v1_5/pretrain_cosmosllama_dino.sh
-sh ./scripts/v1_5/pretrain_cosmosllama_siglip.sh
+sh ./scripts/v1_5/finetune_cosmosllama_internVit.sh
+

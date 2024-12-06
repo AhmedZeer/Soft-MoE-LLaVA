@@ -1,5 +1,6 @@
 import torch
 from torch._C import dtype
+from torch.autograd import forward_ad
 import torch.nn as nn
 import re
 import torch.nn.functional as F
@@ -26,6 +27,7 @@ class SoftMoE(nn.Module):
         # print("@ SoftMoE.forward(x)")
         # print("0-"*5)
         # print("  -> x.shape:", x.shape)
+        # print("  -> self.patch_dim:", self.patch_dim)
         # print("  -> x.dtype:", x.dtype)
 
         # x : [8, 576, 1024]
@@ -121,6 +123,28 @@ class SimpleResBlock(nn.Module):
         x = self.pre_norm(x)
         return x + self.proj(x)
 
+class TokenDropMLP(nn.Module):
+    def __init__(self, mlp_depth, mm_hidden_size, hidden_size, is_token_drop):
+        super().__init__()
+        self.alpha = nn.Parameter(torch.randn(1, requires_grad=True))
+        self.mlp = create_expert(mlp_depth, mm_hidden_size, hidden_size)
+    def forward(self, x):
+        # [batch_size, patch_num, patch_dim]
+        print("@ TokenDropMLP")
+        print("Shape Before Drop:", x.shape)
+        last_hidden_state_normalized = torch.nn.functional.normalize(x, dim=-1)
+
+        # Calculate cosine similarity using the normalized embeddings
+        similarity = last_hidden_state_normalized @ last_hidden_state_normalized.transpose(-1,-2)
+        sums = torch.sum(similarity, -1)
+        probas = torch.softmax(sums, -1)
+        self.alpha.data.clamp_(0.4, 1.0)
+        _,indices = probas.topk((self.alpha * probas.shape[-1]).to(torch.int),largest=False)
+        x = torch.index_select(x, -2, indices.squeeze())
+        print("Shape After Drop:", x.shape)
+        print("@ TokenDropMLP")
+        return self.mlp(x)
+
 def create_expert(mlp_depth, mm_hidden_size, hidden_size):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     modules = [nn.Linear(mm_hidden_size, hidden_size)]
@@ -128,10 +152,10 @@ def create_expert(mlp_depth, mm_hidden_size, hidden_size):
         modules.append(nn.GELU())
 
         # Train:
-        modules.append(nn.Linear(hidden_size, hidden_size).to(device))
+        # modules.append(nn.Linear(hidden_size, hidden_size).to(device))
 
         # Inference:
-        # modules.append(nn.Linear(hidden_size, hidden_size).to_empty(device=device))
+        modules.append(nn.Linear(hidden_size, hidden_size).to_empty(device=device))
     return nn.Sequential(*modules)
 
 def build_vision_projector(config, delay_load=False, **kwargs):
@@ -139,8 +163,11 @@ def build_vision_projector(config, delay_load=False, **kwargs):
     projector_type = getattr(config, 'mm_projector_type', 'linear')
     is_soft_moe = getattr(config, 'soft_moe', False)
     batch_size = getattr(config, 'moe_batch_size', 1)
+    is_token_drop = getattr(config, 'token_drop', False)
+    vision_tower_name = getattr(config, 'mm_vision_tower', "").lower()
     print(config)
     print("is_soft_moe:",is_soft_moe)
+    print("is_token_drop:",is_token_drop)
 
     if projector_type == 'linear':
         return nn.Linear(config.mm_hidden_size, config.hidden_size)
@@ -153,17 +180,26 @@ def build_vision_projector(config, delay_load=False, **kwargs):
         hidden_size = config.hidden_size
 
         if is_soft_moe:
-            print("0-"*10)
-            print("SoftMoE Layer Init.")
-            print("  -> mm_hidden_size:",mm_hidden_size)
-            print("  -> hidden_size:", hidden_size)
-            print("-0"*10)
+            # print("0-"*10)
+            # print("SoftMoE Layer Init.")
+            # print("  -> mm_hidden_size:",mm_hidden_size)
+            # print("  -> hidden_size:", hidden_size)
+            # print("-0"*10)
 
             experts_n = config.experts_n
             slots_n = config.slots_n
             experts = nn.ModuleList([create_expert(mlp_depth,mm_hidden_size, hidden_size) for _ in range(experts_n)])
+
+            if "clip" in vision_tower_name:
+                patch_dim = 576
+            elif "dino" in vision_tower_name:
+                patch_dim = 256
+            elif "siglip" in vision_tower_name:
+                patch_dim = 728
+            else:
+                raise Exception("Not Supported Vision Tower:", vision_tower_name)
             soft_moe = SoftMoE(batch_size=batch_size,
-                               patch_dim=576,
+                               patch_dim=patch_dim,
                                d=mm_hidden_size, # Projector Hidden Size
                                n=experts_n,
                                p=slots_n,
@@ -172,6 +208,11 @@ def build_vision_projector(config, delay_load=False, **kwargs):
             print("\nRETURN SOFT MOE.\n")
             return soft_moe
 
+        elif is_token_drop:
+            return TokenDropMLP(mlp_depth=mlp_depth,
+                          mm_hidden_size=mm_hidden_size,
+                          hidden_size=hidden_size,
+                          is_token_drop = is_token_drop)
         else:
             return create_expert(mlp_depth=mlp_depth,
                           mm_hidden_size=mm_hidden_size,
@@ -181,3 +222,22 @@ def build_vision_projector(config, delay_load=False, **kwargs):
         return IdentityMap()
 
     raise ValueError(f'Unknown projector type: {projector_type}')
+
+
+"""
+@ SoftMoE.forward(SIGLIP)
+0-0-0-0-0-
+  -> x.shape: torch.Size([8, 728, 1152])
+  -> self.patch_dim: 728
+
+
+@ SoftMoE.forward(CLIP)
+0-0-0-0-0-
+  -> x.shape: torch.Size([8, 576, 1024])
+  -> self.patch_dim: 576
+
+@ SoftMoE.forward(DINOv2)
+0-0-0-0-0-
+  -> x.shape: torch.Size([8, 256, 768])
+  -> self.patch_dim: 256
+"""

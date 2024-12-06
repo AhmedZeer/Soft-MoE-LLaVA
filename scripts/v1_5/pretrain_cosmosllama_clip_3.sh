@@ -3,7 +3,6 @@
 # --eval_data_path /ari/users/azeer/llava++/LLaVA-pp/LLaVA/playground/data/LLaVa-pretrain/chat-5k-lines.json \
 # --eval_data_path /ari/users/azeer/llava-eval/data/qa90_train_format.json
 # --eval_image_folder /ari/users/azeer/llava-eval/data/imgs/qa90/ \
-#
 
 deepspeed /ari/users/azeer/Soft-MoE-LLaVA/llava/train/train_mem.py \
   --deepspeed ./scripts/zero2.json \
@@ -13,15 +12,16 @@ deepspeed /ari/users/azeer/Soft-MoE-LLaVA/llava/train/train_mem.py \
   --eval_data_path ./playground/ocr-data/batch-1-200K/ocr-pretrain-75K-test.json \
   --image_folder ./playground/ocr-data/batch-1-200K/imgs/ \
   --eval_image_folder ./playground/ocr-data/batch-1-200K/imgs/ \
-  --soft_moe False \
-  --vision_tower google/siglip-so400m-patch14-384 \
+  --soft_moe True \
+  --experts_n 32 \
+  --vision_tower openai/clip-vit-large-patch14-336 \
   --mm_projector_type mlp2x_gelu \
   --tune_mm_mlp_adapter True \
   --mm_vision_select_layer -2 \
   --mm_use_im_start_end False \
   --mm_use_im_patch_token False \
   --fp16 True \
-  --output_dir ./checkpoints/llava-pretrain-MoE-siglip-ocr75K \
+  --output_dir ./checkpoints/llava-pretrain-32_ExpertsMoE-clip-ocr75K \
   --num_train_epochs 1 \
   --per_device_train_batch_size 8 \
   --moe_batch_size 8 \
@@ -29,9 +29,9 @@ deepspeed /ari/users/azeer/Soft-MoE-LLaVA/llava/train/train_mem.py \
   --gradient_accumulation_steps 4 \
   --evaluation_strategy "steps" \
   --save_strategy "steps" \
-  --save_steps 50000 \
-  --eval_steps 10 \
-  --save_total_limit 3 \
+  --save_steps 500 \
+  --eval_steps 20 \
+  --save_total_limit 2 \
   --learning_rate 2e-6 \
   --weight_decay 0. \
   --warmup_ratio 0.03 \

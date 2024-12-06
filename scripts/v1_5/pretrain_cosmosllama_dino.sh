@@ -13,15 +13,15 @@ deepspeed /ari/users/azeer/Soft-MoE-LLaVA/llava/train/train_mem.py \
   --eval_data_path ./playground/ocr-data/batch-1-200K/ocr-pretrain-75K-test.json \
   --image_folder ./playground/ocr-data/batch-1-200K/imgs/ \
   --eval_image_folder ./playground/ocr-data/batch-1-200K/imgs/ \
-  --soft_moe False \
-  --vision_tower google/siglip-so400m-patch14-384 \
+  --soft_moe True \
+  --vision_tower facebook/dinov2-base \
   --mm_projector_type mlp2x_gelu \
   --tune_mm_mlp_adapter True \
   --mm_vision_select_layer -2 \
   --mm_use_im_start_end False \
   --mm_use_im_patch_token False \
   --fp16 True \
-  --output_dir ./checkpoints/llava-pretrain-MoE-siglip-ocr75K \
+  --output_dir ./checkpoints/llava-pretrain-MoE-dinov2-ocr75K \
   --num_train_epochs 1 \
   --per_device_train_batch_size 8 \
   --moe_batch_size 8 \
@@ -32,7 +32,7 @@ deepspeed /ari/users/azeer/Soft-MoE-LLaVA/llava/train/train_mem.py \
   --save_steps 50000 \
   --eval_steps 10 \
   --save_total_limit 3 \
-  --learning_rate 2e-6 \
+  --learning_rate 1e-6 \
   --weight_decay 0. \
   --warmup_ratio 0.03 \
   --lr_scheduler_type "cosine" \
